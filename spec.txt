@@ -1,0 +1,32 @@
+Design Document: TPT Chassis
+Project Name: TPT Chassis (Open-Source Vehicle Operating System)
+Industry: Automotive & Autonomous Systems
+Status: Phase 1 Design / Pre-Alpha
+1. Executive Summary
+Modern cars have 100+ ECUs (Electronic Control Units) running bloated AUTOSAR C++ code. It takes 5 years and $1B to update a car's software. This is why Tesla can push over-the-air updates and Ford can't.
+TPT Chassis is an open-source, memory-safe vehicle operating system written in Rust. It replaces the AUTOSAR stack, provides a unified API for all vehicle systems (engine, brakes, steering, infotainment), and enables true software-defined vehicles.
+2. System Architecture
+Core Components:
+AUTOSAR Replacement: Implements the same interfaces as AUTOSAR (for compatibility with existing sensors/actuators) but in safe Rust.
+Vehicle Bus Abstraction: Unified API for CAN bus, Ethernet, and LIN bus (the three networks inside a car).
+Over-the-Air (OTA) Update Engine: Secure, atomic updates that can't brick the vehicle.
+Autonomous Driving Interface: Plug-and-play integration with self-driving stacks (like Apollo or Autoware).
+Target Tech Stack:
+Language: Rust (bare-metal, no_std)
+RTOS: Zephyr or Automotive-grade Linux
+Protocols: CAN bus, SOME/IP (for Ethernet), UDS (for diagnostics)
+Hardware: Automotive-grade ARM processors (NXP, Infineon)
+3. The TPT Fulcrum Strategy
+You use existing automotive middleware as the foundation.
+Phase 1: Write the CAN bus abstraction layer in Rust.
+Phase 2: Point TPT Fulcrum at the C++ code of an open-source AUTOSAR implementation. Extract the communication logic into a Knowledge Graph. Generate optimized Rust.
+Phase 3: Integrate with real vehicle hardware. Run on an ECU in a test vehicle.
+Phase 4: Pursue ISO 26262 (automotive safety) certification. Rust's memory safety cuts the audit time by 70%.
+4. Integration with TPT Ecosystem
+TPT Chassis (Vehicle): Controls the car's systems.
+tpt-flight-control (Infrastructure): Manages autonomous vehicle routing in smart cities.
+Communication: Chassis sends vehicle telemetry to tpt-flight-control via 5G (TPT Beam).
+5. The Market Disruption
+EV Startups: Can build software-defined vehicles without reverse-engineering Bosch's closed-source ECUs.
+Autonomous Driving: Self-driving stacks can plug directly into TPT Chassis without hardware abstraction layers.
+Fleet Operators: Can push OTA updates to thousands of vehicles simultaneously.

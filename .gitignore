@@ -1,0 +1,19 @@
+# Rust
+/target/
+**/target/
+Cargo.lock
+*.rs.bk
+*.pdb
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env/secrets
+.env
+.env.*
