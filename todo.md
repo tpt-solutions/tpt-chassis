@@ -103,36 +103,36 @@ Enable adoption by EV startups, autonomous stacks, and fleets (spec §5).
 Action items from the platform review (bugs, gaps, adoption). See `.kilo/plans/`.
 
 ### Bugs (must fix)
-- [ ] Fix `Interlock` `AutonomyStack` trait impl infinite recursion in `core/src/safety.rs:108-123` (delegate to inner `self.stack`, not `self`); add a test driving `Interlock` through the trait
-- [ ] Fix CAN extended-ID max: `EXTENDED_MAX` `0x1FFF_FFFF` -> `0x1FFFFFFF` in `core/src/can.rs:46`; add boundary test for `0x1FFFFFFF`
-- [ ] Wire `validate_frame`/`validate_message` into each `transmit()` (CAN/SOME/IP/LIN) and map failures to `BusError::InvalidFrame`; add tests asserting `InvalidFrame`
+- [x] Fix `Interlock` `AutonomyStack` trait impl infinite recursion in `core/src/safety.rs:108-123` (delegate to inner `self.stack`, not `self`); add a test driving `Interlock` through the trait
+- [x] Fix CAN extended-ID max: `EXTENDED_MAX` `0x1FFF_FFFF` -> `0x1FFFFFFF` in `core/src/can.rs:46`; add boundary test for `0x1FFFFFFF`
+- [x] Wire `validate_frame`/`validate_message` into each `transmit()` (CAN/SOME/IP/LIN) and map failures to `BusError::InvalidFrame`; add tests asserting `InvalidFrame`
 
 ### Docs & status hygiene
-- [ ] Update `README.md` status line (still says "Phase 0") to reflect completed phases
-- [ ] Reconcile `docs/phase-10-ecosystem.md` deliverables (still `- [ ]`) with todo's "done" marking
-- [ ] Refresh stale module docs in `core/src/lib.rs` and `sim/src/lib.rs` ("later phases" comments)
-- [ ] Complete `core/src/lib.rs` module list (add autonomy, autosar, can, lin, someip, uds, ota)
+- [x] Update `README.md` status line to reflect completed phases
+- [x] Reconcile `docs/phase-10-ecosystem.md` deliverables with todo's "done" marking
+- [x] Refresh stale module docs in `core/src/lib.rs` and `sim/src/lib.rs`
+- [x] Complete `core/src/lib.rs` module list (autonomy, autosar, bus, can, lin, someip, uds, isotp, ota, safety)
 
 ### Missing features
-- [ ] Add a real Ed25519 `SignatureScheme` backend (feature-gated, `no_std`-friendly) to replace `DemoSigner`
-- [ ] Add ISO-TP (ISO 15765-2) segmentation layer so `UdsServer` handles multi-frame requests
-- [ ] Add CAN FD (64-byte) frame type / transport abstraction
-- [ ] Implement (not just stub) `zephyr` and `agl` peripheral backends; mark todo Phase 6 as "planned" until validated
-- [ ] Enforce UDS `tester_present` liveness timeout that auto-disarms
-- [ ] Log `Interlock` arm/disarm events into `TelemetryRing` for field reconstruction
+- [x] Add a real Ed25519 `SignatureScheme` backend (feature-gated, `no_std`-friendly) to replace `DemoSigner`
+- [x] Add ISO-TP (ISO 15765-2) segmentation layer so `UdsServer` handles multi-frame requests
+- [x] Add CAN FD (64-byte) frame type / transport abstraction
+- [ ] Implement (not just stub) `zephyr` and `agl` peripheral backends; mark todo Phase 6 as "planned" until hardware-validated (ports present, flash/SocketCAN gated on target)
+- [x] Enforce UDS `tester_present` liveness timeout that auto-disarms
+- [x] Log `Interlock` arm/disarm events into `TelemetryRing` for field reconstruction
 
 ### Adoption: examples & templates
-- [ ] Add `core/examples/hello_ecu.rs` (bring up CAN + sim, send/receive)
-- [ ] Add `core/examples/ota_update.rs` (stage/promote/commit/recover + power-loss injection)
-- [ ] Add `core/examples/uds_diagnostics.rs` (`UdsServer` over sim CAN)
-- [ ] Add `core/examples/autonomy_lane_keep.rs` (stack wrapped in `Interlock`, safe-stop asserted)
-- [ ] Add `core/examples/custom_stack.rs` (from-scratch `impl AutonomyStack` skeleton)
-- [ ] Add `templates/ecu-crate/` starter workspace referenced from the integrator guide
-- [ ] Expand `docs/phase-10-ecosystem.md` outline into a copy-paste quickstart using the examples
+- [x] Add `core/examples/hello_ecu.rs` (bring up CAN + sim, send/receive)
+- [x] Add `core/examples/ota_update.rs` (stage/promote/commit/recover + power-loss injection)
+- [x] Add `core/examples/uds_diagnostics.rs` (`UdsServer` over sim CAN)
+- [x] Add `core/examples/autonomy_lane_keep.rs` (stack wrapped in `Interlock`, safe-stop asserted)
+- [x] Add `core/examples/custom_stack.rs` (from-scratch `impl AutonomyStack` skeleton)
+- [x] Add `templates/ecu-crate/` starter workspace referenced from the integrator guide
+- [x] Expand `docs/phase-10-ecosystem.md` outline into a copy-paste quickstart using the examples
 
 ### Innovation / automation
-- [ ] Add `tpt-cli` developer tool: `new` (scaffold), `sim`, `ota sign`/`ota stage`, `diag` (UDS client)
-- [ ] Add DBC / `signals.toml` -> safe-Rust `Signal` codegen
-- [ ] Add HIL GitHub Action exercising the sim suite over a SocketCAN `vcan` interface
-- [ ] Add `tpt-flight-control` bridge stub (typed telemetry + TPT Beam/5G shim per spec §4)
-- [ ] Add `cargo clippy --all-targets` gate to CI if not present
+- [x] Add `tpt-cli` developer tool: `new` (scaffold), `sim`, `ota sign`/`ota stage`, `diag` (UDS client), `signals` codegen
+- [x] Add DBC / `signals.toml` -> safe-Rust `Signal` codegen (via `tpt-cli signals`)
+- [x] Add HIL GitHub Action exercising the sim suite over a SocketCAN `vcan` interface (`.github/workflows/hil.yml`)
+- [x] Add `tpt-flight-control` bridge stub (typed telemetry + TPT Beam/5G shim per spec §4)
+- [x] Add `cargo clippy --all-targets` gate to CI (present at `-D warnings`)

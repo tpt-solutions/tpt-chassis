@@ -21,8 +21,16 @@
 //! vehicle hardware (for example a simulated CAN bus) so that the `no_std`
 //! core crate can be exercised without target silicon.
 //!
-//! It is part of the Phase 0 workspace scaffolding; the actual simulated
-//! transporters are implemented in later phases.
+//! It provides in-memory network backends for every supported bus:
+//! - [`can`] — an in-memory [`can::SimCanNetwork`] that broadcasts frames
+//!   between nodes, mirroring real CAN behavior.
+//! - [`lin`] — an in-memory LIN network (`SimLinNetwork`).
+//! - [`someip`] — an in-memory SOME/IP network (`SimSomeIpNetwork`).
+//!
+//! These backends implement the `CanTransceiver` / `LinTransceiver` /
+//! `SomeIpTransceiver` traits and are wrapped by `CanBus` / `LinBus` /
+//! `SomeIpBus` in `tpt-chassis-core`, so application code runs unmodified
+//! against either the simulator or real hardware.
 
 pub mod can;
 pub mod lin;

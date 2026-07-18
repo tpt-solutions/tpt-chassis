@@ -29,6 +29,11 @@
 /// Maximum UDS payload size for a single CAN frame (ISO-TP single frame).
 pub const UDS_MAX_PAYLOAD: usize = 7;
 
+/// Number of `tick()` calls a session stays alive without a fresh TesterPresent.
+/// Once it elapses the server auto-disarms (drops to the default session and
+/// re-locks security), so a stalled tester cannot hold an elevated session.
+pub const TESTER_PRESENT_TIMEOUT: u8 = 5;
+
 /// UDS service identifiers (SID).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -192,6 +197,42 @@ impl<D: UdsDataProvider> UdsServer<D> {
     }
 
     /// Processes a UDS request payload and returns the response payload.
+    /// Returns `true` while a tester-present liveness window is active.
+    pub fn is_held(&self) -> bool {
+        self.tester_present_pending.is_some()
+    }
+
+    /// Advances the tester-present liveness watchdog by one tick.
+    ///
+    /// Each call decrements the remaining liveness window set by the last
+    /// `TesterPresent` request. When the window elapses, the server auto-disarms:
+    /// the active diagnostic session reverts to [`UdsSession::Default`] and the
+    /// security level re-locks, so a disconnected or stalled tester cannot keep
+    /// an elevated session open. Returns `true` if the server just disarmed.
+    pub fn tick(&mut self) -> bool {
+        match self.tester_present_pending {
+            Some(0) => {
+                self.session = UdsSession::Default;
+                self.security = UdsSecurityLevel::Locked;
+                self.tester_present_pending = None;
+                true
+            }
+            Some(n) => {
+                let next = n - 1;
+                if next == 0 {
+                    self.session = UdsSession::Default;
+                    self.security = UdsSecurityLevel::Locked;
+                    self.tester_present_pending = None;
+                    true
+                } else {
+                    self.tester_present_pending = Some(next);
+                    false
+                }
+            }
+            None => false,
+        }
+    }
+
     ///
     /// `request`/`response` use the single-frame layout (first byte = SID).
     /// Returns `None` if `response` is too small for the generated response.
@@ -219,6 +260,9 @@ impl<D: UdsDataProvider> UdsServer<D> {
                     return self.nrc(response, service, UdsNrc::SubFunctionNotSupported);
                 }
                 self.tester_present_pending = None;
+                // Refresh the liveness window; if no further TesterPresent arrives
+                // within TESTER_PRESENT_TIMEOUT ticks, 	ick() auto-disarms.
+                self.tester_present_pending = Some(TESTER_PRESENT_TIMEOUT);
                 response[0] = service.to_u8() + 0x40;
                 response[1] = 0x00;
                 Some(2)
@@ -228,7 +272,7 @@ impl<D: UdsDataProvider> UdsServer<D> {
                 let next = UdsSession::from_u8(sub)?;
                 self.session = next;
                 // Positive response: SID+0x40, sub-function, then 2-byte
-                // session timing (P2 server) — fixed at 0x0032 (50ms) here.
+                // session timing (P2 server) â€” fixed at 0x0032 (50ms) here.
                 response[0] = service.response_sid();
                 response[1] = sub;
                 response[2] = 0x00;
@@ -424,5 +468,68 @@ mod tests {
         let mut resp = [0u8; 16];
         let n = s.handle(&[0x19, 0x01], &mut resp).unwrap(); // 0x19 not implemented
         assert_eq!(&resp[..n], &[0x7F, 0x19, 0x11]); // serviceNotSupported
+    }
+
+    #[test]
+    fn multi_frame_write_via_isotp_then_unlock() {
+        use crate::isotp::{encode_message, IsoTpEvent, IsoTpLink};
+        let mut s = server();
+        // A 20-byte WriteDataByIdentifier request must travel as FF + consecutive
+        // frames because a single CAN frame holds only 7 data bytes.
+        let mut req = [0u8; 20];
+        req[0] = 0x2E;
+        req[1] = 0x00;
+        req[2] = 0x01;
+        for b in req.iter_mut().skip(3) {
+            *b = 0xAB;
+        }
+        let mut frames = [[0u8; 8]; 8];
+        let n = encode_message(&req, &mut frames).unwrap();
+        assert!(n >= 2, "message must be segmented");
+        let mut link: IsoTpLink<64> = IsoTpLink::new();
+        let mut payload = [0u8; 20];
+        let mut got = 0;
+        for frame in &frames[..n] {
+            if let IsoTpEvent::Complete(p) = link.feed(frame).unwrap() {
+                payload[..p.len()].copy_from_slice(p);
+                got = p.len();
+            }
+        }
+        assert_eq!(got, 20);
+        // While locked, the write is denied.
+        let mut resp = [0u8; 16];
+        let r = s.handle(&payload[..got], &mut resp).unwrap();
+        assert_eq!(&resp[..r], &[0x7F, 0x2E, 0x33]);
+        // Unlock and resend the same reassembled request -> positive response.
+        let _ = s.handle(&[0x27, 0x01], &mut resp);
+        let _ = s.handle(&[0x27, 0x02, 0x55], &mut resp);
+        let r = s.handle(&payload[..got], &mut resp).unwrap();
+        assert_eq!(&resp[..r], &[0x6E, 0x00, 0x01]);
+    }
+
+    #[test]
+    fn tester_present_timeout_auto_disarms() {
+        let mut s = server();
+        let mut resp = [0u8; 16];
+        // Enter extended session + unlock so we have an elevated state to lose.
+        let _ = s.handle(&[0x10, 0x03], &mut resp);
+        let _ = s.handle(&[0x27, 0x01], &mut resp);
+        let _ = s.handle(&[0x27, 0x02, 0x55], &mut resp);
+        assert_eq!(s.session(), UdsSession::Extended);
+        assert_eq!(s.security(), UdsSecurityLevel::Unlocked);
+
+        // TesterPresent refreshes the liveness window.
+        let _ = s.handle(&[0x3E, 0x00], &mut resp);
+        assert!(s.is_held());
+
+        // Each tick consumes one unit of the window.
+        for _ in 0..(crate::uds::TESTER_PRESENT_TIMEOUT as usize - 1) {
+            assert!(!s.tick(), "should still be held before timeout");
+        }
+        // Final tick elapses the window and auto-disarms.
+        assert!(s.tick(), "should disarm on timeout");
+        assert_eq!(s.session(), UdsSession::Default);
+        assert_eq!(s.security(), UdsSecurityLevel::Locked);
+        assert!(!s.is_held());
     }
 }

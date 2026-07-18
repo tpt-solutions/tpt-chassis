@@ -37,7 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all-features
+      # `flash-ota` links against real Zephyr flash symbols and is excluded here;
+      # it is exercised by the no_std/rtos-integration jobs on a real target.
+      - run: cargo test -p tpt-chassis-core -p tpt-chassis-sim -p tpt-chassis-agl -p tpt-chassis-cli --all-features
+      - run: cargo test -p tpt-chassis-zephyr --features std
 
   no_std:
     name: Build no_std core (bare-metal target)

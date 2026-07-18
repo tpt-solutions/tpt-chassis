@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# Copyright (c) TPT Solutions. All rights reserved.
+#
+# Licensed under the MIT License and the Apache License, Version 2.0
+# (the "Licenses"). You may obtain a copy of each License at:
+#
+#   - MIT:   https://opensource.org/licenses/MIT
+#   - Apache: https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the Licenses is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the Licenses for the specific language governing permissions and
+# limitations under each License.
+
+# signals.toml — declarative signal database for this ECU.
+#
+# Each signal describes a bit-range within a frame payload. The accompanying
+# `src/main.rs` decodes/encodes them using `tpt_chassis_core::autosar::Signal`.
+
+[[signal]]
+name = "LaneOffsetCm"
+can_id = 0x200
+start_bit = 0
+length_bits = 16
+# signed = true means the value is interpreted as two's complement.
+signed = true
+
+[[signal]]
+name = "VehicleSpeedCmps"
+can_id = 0x201
+start_bit = 0
+length_bits = 16
+signed = false
+
+[[signal]]
+name = "SteerCmdDeciDeg"
+can_id = 0x300
+start_bit = 0
+length_bits = 16
+signed = true
+
+[[signal]]
+name = "EstopActive"
+can_id = 0x301
+start_bit = 0
+length_bits = 1
+signed = false

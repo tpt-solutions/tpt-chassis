@@ -35,8 +35,15 @@ pub const OTA_MAGIC: [u8; 4] = *b"TPT1";
 /// Current update package format version.
 pub const OTA_FORMAT_VERSION: u8 = 1;
 
-/// Length of a signature in bytes.
-pub const OTA_SIGNATURE_LEN: usize = 32;
+/// Length of a signature in bytes (the `SignatureScheme` buffer size).
+///
+/// Defaults to 32 (used by the test-only `DemoSigner`). When the `crypto-ed25519`
+/// feature is enabled, this widens to 64 to hold a real Ed25519 signature.
+pub const OTA_SIGNATURE_LEN: usize = if cfg!(feature = "crypto-ed25519") {
+    64
+} else {
+    32
+};
 
 /// Maximum payload size of an update package (kept small for `no_std`).
 pub const OTA_MAX_PAYLOAD: usize = 4096;
@@ -216,6 +223,54 @@ impl SignatureScheme for DemoSigner {
 
     fn verify(&self, data: &[u8], sig: &[u8; OTA_SIGNATURE_LEN]) -> bool {
         self.hash(data) == *sig
+    }
+}
+
+/// A real, production-grade Ed25519 signature backend.
+///
+/// Unlike [`DemoSigner`], this provides genuine asymmetric authentication: only
+/// a holder of the 32-byte seed can produce a signature, and anyone with the
+/// public key (embedded in the bootloader) can verify it. It is `no_std` and
+/// allocation-free, backed by the `ed25519-compact` crate, and is gated behind
+/// the `crypto-ed25519` feature.
+///
+/// Ed25519 produces 64-byte signatures, so enabling this feature also widens
+/// [`OTA_SIGNATURE_LEN`] from 32 to 64. Swap `DemoSigner` for `Ed25519Signer` in
+/// production OTA signing — do **not** ship the demo signer.
+#[cfg(feature = "crypto-ed25519")]
+#[derive(Clone)]
+pub struct Ed25519Signer {
+    keypair: ed25519_compact::KeyPair,
+}
+
+#[cfg(feature = "crypto-ed25519")]
+impl Ed25519Signer {
+    /// Builds a signer from a 32-byte Ed25519 seed.
+    pub fn from_seed(seed: &[u8; 32]) -> Self {
+        // `from_seed` clamps the seed per RFC 8032, so it accepts any 32 bytes
+        // and never rejects (unlike `from_slice`, which validates the secret).
+        let keypair = ed25519_compact::KeyPair::from_seed(ed25519_compact::Seed::new(*seed));
+        Ed25519Signer { keypair }
+    }
+
+    /// Returns the public key bytes (share this with the verifier/bootloader).
+    pub fn public_key_bytes(&self) -> [u8; 32] {
+        *self.keypair.pk
+    }
+}
+
+#[cfg(feature = "crypto-ed25519")]
+impl SignatureScheme for Ed25519Signer {
+    fn sign(&self, data: &[u8], sig: &mut [u8; OTA_SIGNATURE_LEN]) {
+        let signature = self.keypair.sk.sign(data, None);
+        sig.copy_from_slice(signature.as_ref());
+    }
+
+    fn verify(&self, data: &[u8], sig: &[u8; OTA_SIGNATURE_LEN]) -> bool {
+        match ed25519_compact::Signature::from_slice(sig) {
+            Ok(signature) => self.keypair.pk.verify(data, &signature).is_ok(),
+            Err(_) => false,
+        }
     }
 }
 
@@ -638,5 +693,54 @@ mod tests {
         let rolled = engine.rollback().unwrap();
         assert_eq!(rolled, 1);
         assert_eq!(engine.state().unwrap(), SlotState::ActiveSlot0);
+    }
+
+    #[cfg(feature = "crypto-ed25519")]
+    #[test]
+    fn ed25519_signer_round_trips_and_rejects_tamper() {
+        let seed = [0x42u8; 32];
+        let signer = Ed25519Signer::from_seed(&seed);
+        let msg = b"tpt-chassis update manifest v2";
+        let mut sig = [0u8; OTA_SIGNATURE_LEN];
+        signer.sign(msg, &mut sig);
+        assert!(signer.verify(msg, &sig), "valid signature verifies");
+        assert_eq!(
+            OTA_SIGNATURE_LEN, 64,
+            "ed25519 widens signature to 64 bytes"
+        );
+
+        let mut tampered = sig;
+        tampered[0] ^= 0xFF;
+        assert!(
+            !signer.verify(msg, &tampered),
+            "tampered signature rejected"
+        );
+    }
+
+    #[cfg(feature = "crypto-ed25519")]
+    #[test]
+    fn ed25519_signer_can_drive_stage() {
+        let seed = [0x11u8; 32];
+        let signer = Ed25519Signer::from_seed(&seed);
+        let mut store = MemStorage::new();
+        let mut engine = OtaEngine::new(&mut store, signer.clone());
+
+        let payload = [0x5A; 16];
+        let pkg = UpdatePackage {
+            slot: 1,
+            payload_len: payload.len() as u32,
+        };
+        let mut signed = [0u8; UpdatePackage::HEADER_LEN + OTA_MAX_PAYLOAD];
+        pkg.encode_header(&mut signed[..UpdatePackage::HEADER_LEN]);
+        signed[UpdatePackage::HEADER_LEN..UpdatePackage::HEADER_LEN + payload.len()]
+            .copy_from_slice(&payload);
+        let mut sig = [0u8; OTA_SIGNATURE_LEN];
+        signer.sign(
+            &signed[..UpdatePackage::HEADER_LEN + payload.len()],
+            &mut sig,
+        );
+        engine
+            .stage(&pkg, &payload, &sig)
+            .expect("ed25519-signed stage ok");
     }
 }

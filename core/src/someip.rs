@@ -27,6 +27,14 @@
 use crate::bus::{BusError, Frame, VehicleBus};
 use crate::Error;
 
+/// Maps a message-validation failure onto the bus transport enum.
+fn invalid_message_err(e: Error) -> BusError {
+    match e {
+        Error::InvalidArgument => BusError::InvalidFrame,
+        other => BusError::Core(other),
+    }
+}
+
 /// SOME/IP protocol version (fixed at 1).
 pub const SOMEIP_PROTOCOL_VERSION: u8 = 0x01;
 
@@ -262,6 +270,23 @@ impl SomeIpMessage {
         &self.payload[..self.payload_len as usize]
     }
 
+    /// Constructs a `SomeIpMessage` from raw parts without validation.
+    ///
+    /// Test-only helper to exercise [`validate_message`] / `transmit` on
+    /// out-of-range inputs that the public constructors reject.
+    #[cfg(test)]
+    pub(crate) fn from_raw(
+        header: SomeIpHeader,
+        payload: [u8; SOMEIP_MAX_PAYLOAD],
+        payload_len: u16,
+    ) -> SomeIpMessage {
+        SomeIpMessage {
+            header,
+            payload,
+            payload_len,
+        }
+    }
+
     /// Encodes the full message (header + payload) into `out`.
     ///
     /// Returns `None` if `out` is too small. The SOME/IP `Length` field is
@@ -340,12 +365,23 @@ impl<T: SomeIpTransceiver> SomeIpBus<T> {
     pub fn new(transceiver: T) -> Self {
         SomeIpBus { transceiver }
     }
+
+    /// Returns a reference to the underlying transceiver.
+    pub fn transceiver(&self) -> &T {
+        &self.transceiver
+    }
+
+    /// Returns a mutable reference to the underlying transceiver.
+    pub fn transceiver_mut(&mut self) -> &mut T {
+        &mut self.transceiver
+    }
 }
 
 impl<T: SomeIpTransceiver> VehicleBus for SomeIpBus<T> {
     type Frame = SomeIpMessage;
 
     fn transmit(&mut self, frame: SomeIpMessage) -> Result<(), BusError> {
+        validate_message(&frame).map_err(invalid_message_err)?;
         self.transceiver.send(frame)
     }
 
@@ -465,5 +501,49 @@ mod tests {
         };
         let msg = SomeIpMessage::new(h, &[]).unwrap();
         assert_eq!(validate_message(&msg), Err(Error::InvalidArgument));
+    }
+
+    /// A transceiver that records whether `send` was invoked.
+    struct CountingTransceiver {
+        sent: bool,
+    }
+
+    impl SomeIpTransceiver for CountingTransceiver {
+        fn send(&mut self, _message: SomeIpMessage) -> Result<(), BusError> {
+            self.sent = true;
+            Ok(())
+        }
+        fn recv(&mut self) -> Result<SomeIpMessage, BusError> {
+            Err(BusError::RxQueueEmpty)
+        }
+        fn has_received(&self) -> bool {
+            false
+        }
+        fn can_send(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn transmit_invalid_message_errors_before_send() {
+        let mut bus = SomeIpBus::new(CountingTransceiver { sent: false });
+        let h = SomeIpHeader {
+            message_id: SomeIpMessageId {
+                service: 0,
+                method: 0,
+            },
+            ..sample_header()
+        };
+        let msg = SomeIpMessage::from_raw(h, [0u8; SOMEIP_MAX_PAYLOAD], 0);
+        assert_eq!(bus.transmit(msg), Err(BusError::InvalidFrame));
+        assert!(!bus.transceiver().sent);
+    }
+
+    #[test]
+    fn transmit_valid_message_reaches_transceiver() {
+        let mut bus = SomeIpBus::new(CountingTransceiver { sent: false });
+        let msg = SomeIpMessage::new(sample_header(), &[1, 2, 3]).unwrap();
+        assert_eq!(bus.transmit(msg), Ok(()));
+        assert!(bus.transceiver().sent);
     }
 }

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+[package]
+name = "tpt-cli"
+description = "Developer tooling for TPT Chassis (scaffold, simulate, sign OTA, UDS diag)"
+license = "MIT OR Apache-2.0" # SPDX-License-Identifier: MIT OR Apache-2.0
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+tpt-chassis-core = { workspace = true }
+tpt-chassis-sim = { path = "../sim", version = "0.1.0" }
+clap = { version = "4", features = ["derive"] }
+toml = "0.8"

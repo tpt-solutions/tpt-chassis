@@ -10,9 +10,7 @@
 
 use tpt_chassis_core::bus::VehicleBus;
 use tpt_chassis_core::can::{CanBus, CanFrame, CanId, CanTransceiver};
-use tpt_chassis_core::ota::{
-    DemoSigner, OtaEngine, OtaStorage, SignatureScheme, SlotState, UpdatePackage,
-};
+use tpt_chassis_core::ota::{DemoSigner, OtaEngine, SignatureScheme, SlotState, UpdatePackage};
 use tpt_chassis_zephyr::ota_storage::ZephyrOtaStorage;
 
 /// A trivial loopback CAN transceiver used to validate the `CanBus` surface on

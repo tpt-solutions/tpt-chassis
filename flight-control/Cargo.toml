@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+[package]
+name = "tpt-flight-control"
+description = "Bridge stub: streams TPT Chassis telemetry to tpt-flight-control over TPT Beam (5G)"
+license = "MIT OR Apache-2.0" # SPDX-License-Identifier: MIT OR Apache-2.0
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+tpt-chassis-core = { workspace = true }
+
+# `serde` is optional so the crate stays `no_std`-friendly; the typed telemetry
+# records can be serialized for transport when the feature is enabled.
+serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+default = []
+# Enables `serde` (de)serialization of telemetry frames.
+serde = ["dep:serde"]

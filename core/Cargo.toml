@@ -14,8 +14,20 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+# Optional real Ed25519 signature backend (no_std-friendly). Enable with the
+# `crypto-ed25519` feature. Ed25519 signatures are 64 bytes, so this feature
+# also widen the OTA signature field (see `OTA_SIGNATURE_LEN` in ota.rs).
+ed25519-compact = { version = "2", optional = true, default-features = false }
 
 [features]
 default = []
 # Enables std-dependent helpers (alloc, collections). Off by default for bare-metal.
 std = []
+# Real Ed25519 `SignatureScheme` backend (`Ed25519Signer`), replacing the
+# test-only `DemoSigner` for production OTA signing.
+crypto-ed25519 = ["ed25519-compact"]
+
+# Dev-dependencies (examples / integration tests) pull in the host-side
+# simulator so examples can run the no_std core against an in-memory bus.
+[dev-dependencies]
+tpt-chassis-sim = { path = "../sim", version = "0.1.0" }

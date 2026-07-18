@@ -29,7 +29,7 @@ use tpt_chassis_core::can::{CanFrame, CanTransceiver};
 /// Default SOCKETCAN interface name used when none is supplied.
 pub const DEFAULT_IFACE: &str = "can0";
 
-#[cfg(feature = "socketcan")]
+#[cfg(all(feature = "socketcan", unix))]
 mod raw {
     use std::os::unix::io::RawFd;
 
@@ -50,6 +50,7 @@ mod raw {
 pub struct AglCanTransceiver {
     iface: String,
     #[cfg(feature = "socketcan")]
+    #[cfg(unix)]
     fd: Option<std::os::unix::io::RawFd>,
     loopback: VecDeque<CanFrame>,
 }
@@ -58,7 +59,7 @@ impl AglCanTransceiver {
     /// Creates a transceiver for the given SOCKETCAN interface.
     pub fn new(iface: impl Into<String>) -> Self {
         let iface = iface.into();
-        #[cfg(feature = "socketcan")]
+        #[cfg(all(feature = "socketcan", unix))]
         {
             let fd = raw::open(&iface);
             AglCanTransceiver {
@@ -67,7 +68,7 @@ impl AglCanTransceiver {
                 loopback: VecDeque::new(),
             }
         }
-        #[cfg(not(feature = "socketcan"))]
+        #[cfg(not(all(feature = "socketcan", unix)))]
         {
             let _ = &iface;
             AglCanTransceiver {
@@ -85,7 +86,7 @@ impl AglCanTransceiver {
 
 impl CanTransceiver for AglCanTransceiver {
     fn send(&mut self, frame: CanFrame) -> Result<(), BusError> {
-        #[cfg(feature = "socketcan")]
+        #[cfg(all(feature = "socketcan", unix))]
         {
             if let Some(fd) = self.fd {
                 // SAFETY: `fd` is a valid AF_CAN socket opened in `new`; the

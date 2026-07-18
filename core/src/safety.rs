@@ -50,7 +50,14 @@ pub enum InterlockState {
 pub struct Interlock<S: AutonomyStack> {
     stack: S,
     state: InterlockState,
+    /// Audit trail of arm/disarm transitions for field reconstruction.
+    events: TelemetryRing<8>,
 }
+
+/// Telemetry event code recorded when the interlock is armed.
+pub const TELEMETRY_ARM: u16 = 0xA001;
+/// Telemetry event code recorded when the interlock is disarmed (safe stop).
+pub const TELEMETRY_DISARM: u16 = 0xA002;
 
 impl<S: AutonomyStack> Interlock<S> {
     /// Wraps `stack`, starting disarmed (fail-safe default).
@@ -58,20 +65,40 @@ impl<S: AutonomyStack> Interlock<S> {
         Interlock {
             stack,
             state: InterlockState::Disarmed,
+            events: TelemetryRing::new(),
         }
     }
 
     /// Arms the interlock, granting actuator authority.
     ///
     /// Must only be called by trusted supervisor code (e.g. after the bench
-    /// checks and a signed-image check pass).
+    /// checks and a signed-image check pass). The transition is recorded in the
+    /// internal telemetry ring for field reconstruction.
     pub fn arm(&mut self) {
         self.state = InterlockState::Armed;
+        self.events.push(TelemetryRecord {
+            timestamp: 0,
+            code: TELEMETRY_ARM,
+            value: 1,
+        });
     }
 
     /// Disarms the interlock, cutting actuator authority (safe stop).
+    ///
+    /// The transition is recorded in the internal telemetry ring for field
+    /// reconstruction.
     pub fn disarm(&mut self) {
         self.state = InterlockState::Disarmed;
+        self.events.push(TelemetryRecord {
+            timestamp: 0,
+            code: TELEMETRY_DISARM,
+            value: 1,
+        });
+    }
+
+    /// Returns the arm/disarm audit trail.
+    pub fn events(&self) -> &TelemetryRing<8> {
+        &self.events
     }
 
     /// Returns the current interlock state.
@@ -107,18 +134,30 @@ impl<S: AutonomyStack> Interlock<S> {
 
 impl<S: AutonomyStack> AutonomyStack for Interlock<S> {
     fn ingest(&mut self, sample: SensorSample) -> Result<(), AutonomyError> {
-        self.ingest(sample)
+        // Delegate straight to the inner stack: the interlock does not gate
+        // ingestion, and routing through the inherent method would re-dispatch
+        // back into this trait method and recurse.
+        self.stack.ingest(sample)
     }
 
     fn next_command(
         &mut self,
         state: VehicleState,
     ) -> Result<Option<ControlCommand>, AutonomyError> {
-        self.next_command(state)
+        // Re-apply the interlock's arm-state gating so trait callers cannot
+        // defeat the kill-switch, then defer to the inner stack for command
+        // generation.
+        if !matches!(self.state, InterlockState::Armed) {
+            return Ok(None);
+        }
+        self.stack.next_command(state)
     }
 
     fn has_control(&self) -> bool {
-        self.has_control()
+        // Disarm always denies control, regardless of what the inner stack
+        // reports. Route to the inner stack field rather than the inherent
+        // method to avoid re-dispatching into this trait method.
+        matches!(self.state, InterlockState::Armed) && self.stack.has_control()
     }
 }
 
@@ -263,6 +302,77 @@ mod tests {
             })
             .unwrap()
             .is_none());
+    }
+
+    /// Drives an `Interlock<LaneKeepingStack>` *through the `AutonomyStack`
+    /// trait* (via a generic helper). This is the regression test for the
+    /// infinite-recursion bug: previously the trait impl called `self.ingest`
+    /// etc. which resolved back to the (un-implemented-gating) trait methods.
+    fn run_stack_through_trait<S: AutonomyStack>(stack: &mut S) {
+        stack
+            .ingest(SensorSample {
+                kind: SensorKind::Camera,
+                timestamp: 1,
+                value: 20,
+            })
+            .unwrap();
+        let cmd = stack
+            .next_command(VehicleState {
+                speed_cmps: 0,
+                timestamp: 1,
+            })
+            .unwrap();
+        assert!(cmd.is_some());
+        assert!(stack.has_control());
+    }
+
+    #[test]
+    fn interlock_through_trait_does_not_recurse() {
+        let mut interlock = Interlock::new(LaneKeepingStack::new(10, 1000));
+        interlock.arm();
+        // If the trait impl recursed, this would stack-overflow.
+        run_stack_through_trait(&mut interlock);
+    }
+
+    #[test]
+    fn interlock_disarmed_through_trait_suppresses() {
+        let mut interlock = Interlock::new(LaneKeepingStack::new(10, 1000));
+        interlock
+            .ingest(SensorSample {
+                kind: SensorKind::Camera,
+                timestamp: 1,
+                value: 20,
+            })
+            .unwrap();
+        // Disarmed by default: trait-path call must still force a safe stop.
+        assert!(run_stack_disarmed(&mut interlock));
+    }
+
+    /// Returns `true` if the stack suppresses commands (safe stop) when driven
+    /// generic over `AutonomyStack`.
+    fn run_stack_disarmed<S: AutonomyStack>(stack: &mut S) -> bool {
+        let cmd = stack
+            .next_command(VehicleState {
+                speed_cmps: 0,
+                timestamp: 1,
+            })
+            .unwrap();
+        !stack.has_control() && cmd.is_none()
+    }
+
+    #[test]
+    fn interlock_logs_arm_disarm_events() {
+        let mut interlock = Interlock::new(LaneKeepingStack::new(10, 1000));
+        interlock.arm();
+        interlock.disarm();
+        interlock.arm();
+        let mut codes = [0u16; 8];
+        for (i, r) in interlock.events().iter().enumerate() {
+            codes[i] = r.code;
+        }
+        assert_eq!(codes[0], TELEMETRY_ARM);
+        assert_eq!(codes[1], TELEMETRY_DISARM);
+        assert_eq!(codes[2], TELEMETRY_ARM);
     }
 
     #[test]

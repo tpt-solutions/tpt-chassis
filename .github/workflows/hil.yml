@@ -1,0 +1,39 @@
+name: HIL (SocketCAN vcan)
+
+# Hardware-in-the-loop smoke test: runs the TPT Chassis in-memory bus suite
+# against a real Linux SOCKETCAN `vcan0` interface (via the AGL `socketcan`
+# feature) instead of the pure loopback simulator. This proves the same
+# `CanBus` application code drives a genuine CAN socket.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  socketcan-hil:
+    name: SOCKETCAN vcan HIL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Load vcan kernel module and bring up vcan0
+        run: |
+          sudo modprobe vcan
+          sudo ip link add dev vcan0 type vcan || true
+          sudo ip link set up vcan0
+          ip -details link show vcan0
+
+      - name: Run sim integration suite over vcan0 (AGL socketcan)
+        # The AGL `socketcan` feature opens a real AF_CAN socket on `vcan0`.
+        # Tests that exercise that backend validate the full SOCKETCAN path.
+        run: cargo test -p tpt-chassis-agl --features socketcan
+
+      - name: Run core integration suite (sim fallback still exercised)
+        run: cargo test -p tpt-chassis-core --all-features

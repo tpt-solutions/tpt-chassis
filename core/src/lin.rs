@@ -26,6 +26,14 @@
 use crate::bus::{BusError, Frame, VehicleBus};
 use crate::Error;
 
+/// Maps a frame-validation failure onto the bus transport enum.
+fn invalid_frame_err(e: Error) -> BusError {
+    match e {
+        Error::InvalidArgument => BusError::InvalidFrame,
+        other => BusError::Core(other),
+    }
+}
+
 /// Maximum payload length of a LIN frame (bytes).
 pub const LIN_MAX_DLC: usize = 8;
 
@@ -114,6 +122,15 @@ impl LinFrame {
         }
         !(sum as u8)
     }
+
+    /// Constructs a `LinFrame` from raw parts without validation.
+    ///
+    /// Test-only helper to exercise [`validate_frame`] / `transmit` on
+    /// out-of-range inputs that the public constructors reject.
+    #[cfg(test)]
+    pub(crate) fn from_raw(id: LinId, data: [u8; LIN_MAX_DLC], len: u8) -> LinFrame {
+        LinFrame { id, data, len }
+    }
 }
 
 impl Frame for LinFrame {
@@ -161,6 +178,16 @@ impl<T: LinTransceiver> LinBus<T> {
         LinBus { transceiver }
     }
 
+    /// Returns a reference to the underlying transceiver.
+    pub fn transceiver(&self) -> &T {
+        &self.transceiver
+    }
+
+    /// Returns a mutable reference to the underlying transceiver.
+    pub fn transceiver_mut(&mut self) -> &mut T {
+        &mut self.transceiver
+    }
+
     /// Returns `true` if the underlying node is the LIN master.
     pub fn is_master(&self) -> bool {
         self.transceiver.is_master()
@@ -171,6 +198,7 @@ impl<T: LinTransceiver> VehicleBus for LinBus<T> {
     type Frame = LinFrame;
 
     fn transmit(&mut self, frame: LinFrame) -> Result<(), BusError> {
+        validate_frame(&frame).map_err(invalid_frame_err)?;
         self.transceiver.send(frame)
     }
 
@@ -239,5 +267,47 @@ mod tests {
     fn validate_frame_ok() {
         let id = LinId::new(0x02).unwrap();
         assert_eq!(validate_frame(&LinFrame::new(id, &[9]).unwrap()), Ok(()));
+    }
+
+    /// A transceiver that records whether `send` was invoked.
+    struct CountingTransceiver {
+        sent: bool,
+    }
+
+    impl LinTransceiver for CountingTransceiver {
+        fn is_master(&self) -> bool {
+            true
+        }
+        fn send(&mut self, _frame: LinFrame) -> Result<(), BusError> {
+            self.sent = true;
+            Ok(())
+        }
+        fn recv(&mut self) -> Result<LinFrame, BusError> {
+            Err(BusError::RxQueueEmpty)
+        }
+        fn has_received(&self) -> bool {
+            false
+        }
+        fn can_send(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn transmit_invalid_frame_errors_before_send() {
+        let mut bus = LinBus::new(CountingTransceiver { sent: false });
+        let id = LinId::new(0x05).unwrap();
+        let f = LinFrame::from_raw(id, [0u8; LIN_MAX_DLC], (LIN_MAX_DLC + 1) as u8);
+        assert_eq!(bus.transmit(f), Err(BusError::InvalidFrame));
+        assert!(!bus.transceiver().sent);
+    }
+
+    #[test]
+    fn transmit_valid_frame_reaches_transceiver() {
+        let mut bus = LinBus::new(CountingTransceiver { sent: false });
+        let id = LinId::new(0x05).unwrap();
+        let f = LinFrame::new(id, &[1, 2, 3]).unwrap();
+        assert_eq!(bus.transmit(f), Ok(()));
+        assert!(bus.transceiver().sent);
     }
 }

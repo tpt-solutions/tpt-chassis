@@ -19,18 +19,29 @@
 //! Core, `no_std`-compatible building blocks for the TPT Chassis vehicle
 //! operating system — an open-source, memory-safe AUTOSAR replacement.
 //!
-//! This crate is intentionally minimal at this stage of the project. It
-//! establishes the workspace layout, license headers, and a `no_std` baseline
-//! that later phases (CAN/Ethernet/LIN bus abstraction, AUTOSAR-compatible
-//! interfaces, OTA engine) will build upon.
+//! The crate provides a unified vehicle-bus abstraction ([`bus`]) implemented
+//! for CAN ([`can`]), automotive Ethernet/SOME/IP ([`someip`]), and LIN
+//! ([`lin`]), plus AUTOSAR-compatible interfaces ([`autosar`]), UDS diagnostics
+//! ([`uds`]), a secure atomic OTA engine ([`ota`]), the autonomous-driving
+//! plugin contract ([`autonomy`]), and the safety interlock/telemetry
+//! primitives ([`safety`]).
 //!
 //! # Modules
 //!
 //! - [`bus`] — the transport-agnostic [`bus::VehicleBus`] trait and the
 //!   [`bus::Frame`] contract shared by every network type.
 //! - [`can`] — the CAN frame type and the [`can::CanBus`] high-level interface.
+//! - [`lin`] — the LIN frame type and the [`lin::LinBus`] interface.
+//! - [`someip`] — the SOME/IP message type and the [`someip::SomeIpBus`]
+//!   interface for automotive Ethernet.
+//! - [`autosar`] — safe-Rust AUTOSAR equivalents (DIO driver, COM signals).
+//! - [`uds`] — UDS (ISO 14229) diagnostic server over CAN.
+//! - [`isotp`] - ISO-TP (ISO 15765-2) segmentation for multi-frame CAN messages.
+//! - [`ota`] — secure, atomic A/B update engine with rollback.
+//! - [`autonomy`] — the [`autonomy::AutonomyStack`] plugin contract and a
+//!   reference lane-keeping stack.
 //! - [`safety`] — the [`safety::Interlock`] kill-switch and
-//!   [`safety::TelemetryRing`] field-logging buffer (Phase 8).
+//!   [`safety::TelemetryRing`] field-logging buffer.
 
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -41,6 +52,7 @@ pub mod autonomy;
 pub mod autosar;
 pub mod bus;
 pub mod can;
+pub mod isotp;
 pub mod lin;
 pub mod ota;
 pub mod safety;

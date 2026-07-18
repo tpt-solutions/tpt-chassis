@@ -29,6 +29,7 @@ use tpt_chassis_core::ota::{OtaError, OtaStorage, SlotState};
 use crate::ffi;
 
 /// Capacity of each A/B image slot in the RAM fallback (kept tiny for `no_std`).
+#[cfg(not(feature = "flash-ota"))]
 const RAM_SLOT_CAP: usize = 1024;
 
 /// OTA storage backed by Zephyr flash or, when `flash-ota` is off, by RAM.
@@ -75,12 +76,6 @@ mod heapless_ram {
         }
     }
 
-    impl Default for super::ZephyrOtaStorage {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
     impl From<&super::ZephyrOtaStorage> for SlotState {
         fn from(_: &super::ZephyrOtaStorage) -> SlotState {
             SlotState::ActiveSlot0
@@ -102,6 +97,12 @@ impl ZephyrOtaStorage {
                 state: SlotState::ActiveSlot0,
             }
         }
+    }
+}
+
+impl Default for ZephyrOtaStorage {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

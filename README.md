@@ -5,8 +5,9 @@
 **An open-source, memory-safe vehicle operating system written in Rust — a
 drop-in-replacement for the AUTOSAR stack.**
 
-> Status: **Phase 0 — Project Setup & Licensing** (pre-Alpha). See
-> [`todo.md`](todo.md) for the full phased roadmap and [`spec.txt`](spec.txt)
+> Status: **Phases 0–6 and 10 complete** (core vehicle OS functional on host
+> and `no_std` targets; RTOS integration tracked but not yet hardware-validated).
+> See [`todo.md`](todo.md) for the full phased roadmap and [`spec.txt`](spec.txt)
 > for the design document.
 
 ## Why
@@ -36,8 +37,10 @@ TPT Chassis is organized as a Cargo workspace:
 | [`someip`](core/src/someip.rs) | SOME/IP header + message + [`SomeIpBus`](core/src/someip.rs) for automotive Ethernet. |
 | [`autosar`](core/src/autosar.rs) | Safe-Rust AUTOSAR equivalents: DIO driver, COM signals. |
 | [`uds`](core/src/uds.rs) | UDS (ISO 14229) diagnostic server over CAN. |
+| [`isotp`](core/src/isotp.rs) | ISO-TP (ISO 15765-2) segmentation for multi-frame CAN messages. |
 | [`ota`](core/src/ota.rs) | Secure, atomic A/B update engine with rollback. |
 | [`autonomy`](core/src/autonomy.rs) | Self-driving stack plugin contract + reference lane-keeper. |
+| [`safety`](core/src/safety.rs) | Interlock kill-switch and `TelemetryRing` field-logging buffer. |
 
 The system is designed around these core components (per `spec.txt`):
 
@@ -56,7 +59,7 @@ Work is tracked in ten phases in [`todo.md`](todo.md). Highlights:
 - **Phase 3** — AUTOSAR-compatible interface layer + UDS diagnostics (done).
 - **Phase 4** — OTA update engine with atomic apply/rollback (done).
 - **Phase 5** — Autonomous driving interface (done).
-- **Phase 6** — RTOS integration (Zephyr / AGL) — [plan](docs/phase-06-rtos.md).
+- **Phase 6** — RTOS integration (Zephyr / AGL) — [plan](docs/phase-06-rtos.md) (_ports implemented, hardware validation pending_).
 - **Phase 7** — Hardware bring-up (NXP / Infineon) — [plan](docs/phase-07-hardware.md).
 - **Phase 8** — Real vehicle integration — [plan](docs/phase-08-vehicle.md).
 - **Phase 9** — ISO 26262 safety certification track — [plan](docs/phase-09-safety.md).

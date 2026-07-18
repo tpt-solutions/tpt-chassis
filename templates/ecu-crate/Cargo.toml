@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# Copyright (c) TPT Solutions. All rights reserved.
+#
+# Licensed under the MIT License and the Apache License, Version 2.0
+# (the "Licenses"). You may obtain a copy of each License at:
+#
+#   - MIT:   https://opensource.org/licenses/MIT
+#   - Apache: https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the Licenses is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the Licenses for the specific language governing permissions and
+# limitations under each License.
+
+# Standalone template crate: keep it out of the parent TPT Chassis workspace.
+[workspace]
+
+[package]
+name = "ecu-crate"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[dependencies]
+# Use a path or git dependency pointing at your TPT Chassis checkout.
+tpt-chassis-core = { path = "../../core", version = "0.1.0" }
+# The simulator lets you build and run the ECU on a host machine with no target
+# silicon. For a pure bare-metal build, remove this dependency and implement
+# `VehicleBus` for your MCU's peripherals instead.
+tpt-chassis-sim = { path = "../../sim", version = "0.1.0" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
