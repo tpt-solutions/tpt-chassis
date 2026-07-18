@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a new capability or improvement for TPT Chassis
+title: "[FEAT] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem would this feature solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Related phase
+      options:
+        - Phase 0 — Project Setup
+        - Phase 1 — CAN Bus Abstraction
+        - Phase 2 — Ethernet/LIN
+        - Phase 3 — AUTOSAR Interface
+        - Phase 4 — OTA Engine
+        - Phase 5 — Autonomous Interface
+        - Phase 6 — RTOS Integration
+        - Phase 7 — Hardware Bring-Up
+        - Other / Unknown
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

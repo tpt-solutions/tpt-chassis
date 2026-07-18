@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+[package]
+name = "tpt-chassis-zephyr"
+description = "Zephyr RTOS bindings for TPT Chassis (no_std, thumbv7em-none-eabihf)"
+license = "MIT OR Apache-2.0" # SPDX-License-Identifier: MIT OR Apache-2.0
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tpt-chassis-core = { workspace = true }
+
+[features]
+default = []
+# Enables the in-flash OTA storage backend (requires a flash partition binding).
+flash-ota = []
+# Relaxes `#![no_std]` so the crate can be unit-tested on the host as a CI gate.
+std = []
+
+[dev-dependencies]

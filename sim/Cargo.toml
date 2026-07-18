@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+[package]
+name = "tpt-chassis-sim"
+description = "Host-side simulation and test tooling for TPT Chassis (std-enabled)"
+license = "MIT OR Apache-2.0" # SPDX-License-Identifier: MIT OR Apache-2.0
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tpt-chassis-core = { workspace = true }
+
+[dev-dependencies]

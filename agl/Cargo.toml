@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+[package]
+name = "tpt-chassis-agl"
+description = "Automotive Grade Linux (AGL) bindings for TPT Chassis (std)"
+license = "MIT OR Apache-2.0" # SPDX-License-Identifier: MIT OR Apache-2.0
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tpt-chassis-core = { workspace = true }
+
+[features]
+default = []
+# Enables the real SOCKETCAN transport backend (requires Linux / AGL).
+socketcan = []

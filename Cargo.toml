@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "sim",
+    "zephyr",
+    "agl",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+authors = ["TPT Solutions"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tpt-solutions/tpt-chassis"
+description = "Open-source, memory-safe vehicle operating system in Rust (AUTOSAR replacement)"
+keywords = ["automotive", "autosar", "can", "no_std", "vehicle-os"]
+categories = ["embedded", "no-std", "os"]
+
+[workspace.dependencies]
+# Internal crates
+tpt-chassis-core = { path = "core", version = "0.1.0" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

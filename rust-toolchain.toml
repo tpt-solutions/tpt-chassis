@@ -1,0 +1,5 @@
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy", "rust-src"]
+targets = ["thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf"]
+profile = "minimal"

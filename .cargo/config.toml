@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+# Flashing/debugging runner for the primary Phase 7 bench target (NXP S32K144EVB).
+# `probe-rs` is the preferred tool; install with `cargo install probe-rs`.
+# Swap --chip for the Infineon TRAVEO T2G CYT2B when using that board.
+[target.thumbv7em-none-eabihf]
+runner = "probe-rs run --chip S32K144"

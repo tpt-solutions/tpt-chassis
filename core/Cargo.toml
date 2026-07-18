@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) TPT Solutions. All rights reserved.
+
+[package]
+name = "tpt-chassis-core"
+description = "Core, no_std vehicle OS primitives for TPT Chassis (AUTOSAR replacement)"
+license = "MIT OR Apache-2.0" # SPDX-License-Identifier: MIT OR Apache-2.0
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+
+[features]
+default = []
+# Enables std-dependent helpers (alloc, collections). Off by default for bare-metal.
+std = []
