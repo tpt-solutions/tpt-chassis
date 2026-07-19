@@ -25,7 +25,7 @@ jobs:
 
       - name: Load vcan kernel module and bring up vcan0
         run: |
-          sudo modprobe vcan
+          sudo modprobe vcan || echo "::warning::vcan module unavailable on this runner; skipping module load"
           sudo ip link add dev vcan0 type vcan || true
           sudo ip link set up vcan0
           ip -details link show vcan0
