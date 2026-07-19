@@ -84,6 +84,15 @@ impl AglCanTransceiver {
     }
 }
 
+#[cfg(all(feature = "socketcan", unix))]
+impl Drop for AglCanTransceiver {
+    fn drop(&mut self) {
+        if let Some(fd) = self.fd.take() {
+            raw::close(fd);
+        }
+    }
+}
+
 impl CanTransceiver for AglCanTransceiver {
     fn send(&mut self, frame: CanFrame) -> Result<(), BusError> {
         #[cfg(all(feature = "socketcan", unix))]
