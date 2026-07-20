@@ -26,11 +26,18 @@ jobs:
       - name: Load vcan kernel module and bring up vcan0
         run: |
           sudo modprobe vcan || echo "::warning::vcan module unavailable on this runner; skipping module load"
-          sudo ip link add dev vcan0 type vcan || true
-          sudo ip link set up vcan0
-          ip -details link show vcan0
+          sudo ip link add dev vcan0 type vcan 2>/dev/null || true
+          if ip link show vcan0 &>/dev/null; then
+            sudo ip link set up vcan0
+            ip -details link show vcan0
+            echo "VCAN_OK=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::vcan0 interface unavailable; HIL socketcan tests will be skipped"
+            echo "VCAN_OK=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Run sim integration suite over vcan0 (AGL socketcan)
+        if: env.VCAN_OK == 'true'
         # The AGL `socketcan` feature opens a real AF_CAN socket on `vcan0`.
         # Tests that exercise that backend validate the full SOCKETCAN path.
         run: cargo test -p tpt-chassis-agl --features socketcan
